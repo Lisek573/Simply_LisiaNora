@@ -19,7 +19,7 @@ local t = Def.ActorFrame{
 t[#t+1] = Def.Sprite{
 	Name="FallbackBanner",
 	Texture=banner_directory.."/banner"..SL.Global.ActiveColorIndex.." (doubleres).png",
-	InitCommand=function(self) self:setsize(418,164) end,
+	InitCommand=function(self) self:setsize(512,160) end,
 
 	CurrentSongChangedMessageCommand=function(self) self:playcommand("Set") end,
 	CurrentCourseChangedMessageCommand=function(self) self:playcommand("Set") end,
