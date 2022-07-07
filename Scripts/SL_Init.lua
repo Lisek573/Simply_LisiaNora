@@ -150,12 +150,12 @@ SL = {
 	-- Colors that Simply Love's background can be
 	-- These colors are used for text on dark backgrounds and backgrounds containing dark text:
 	Colors = {
-	"#adadad",
-	"#795ea3", --beginner
-	"#579442",
-	"#aaa85a",
-	"#8c5463",
-	"#577da3",
+	"#adadad", --edit
+	"#a355b8", --beginner
+	"#1ec51d", --light
+	"#d6db41", --medium
+	"#ba3049", --hard
+	"#2691c5", --expert
 		--"#FF5D47",
 		--"#FF577E",
 		--"#FF47B3",
