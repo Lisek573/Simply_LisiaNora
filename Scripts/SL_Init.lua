@@ -156,6 +156,10 @@ SL = {
 	"#d6db41", --medium
 	"#ba3049", --hard
 	"#2691c5", --expert
+	"#FF5500", --P1 
+	"#FFFFFF", --P2
+	
+	
 		--"#FF5D47",
 		--"#FF577E",
 		--"#FF47B3",
@@ -173,12 +177,12 @@ SL = {
 	},
 	-- These are the original SL colors. They're used for decorative (non-text) elements, like the background hearts:
 	DecorativeColors = {
-	"#111111",
-	"#444444",
-	"#777777",
-	"#AAAAAA",
-	"#CCCCCC",
 	"#FF5500",
+	"#FFFFFF", --P2
+	"#777777",
+	"#444444", 
+	"#CCCCCC",
+	"#FF5500", --P1
 		--"#8200A1",
 		--"#413AD0",
 		--"#0073FF",
