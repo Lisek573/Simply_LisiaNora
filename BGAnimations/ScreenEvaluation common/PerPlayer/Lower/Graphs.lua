@@ -87,12 +87,12 @@ af[#af+1] = Def.GraphDisplay{
 }
 
 af[#af+1] = Def.Quad{
-    Name="0ms",
-    InitCommand=function(self)
-        self:zoomto(GraphWidth,1)
-        self:y(GraphHeight/2)
-        self:diffusealpha(0.2)
-    end
+	Name="ZeroLine",
+	InitCommand=function(self)
+		self:zoomto(GraphWidth,1)
+		self:y(GraphHeight/2)
+		self:diffusealpha(0.1)
+	end
 }
 
 return af
