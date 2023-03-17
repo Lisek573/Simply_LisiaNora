@@ -11,8 +11,8 @@ end
 IsItlActive = function()
 	-- The file is only written to while the event is active.
 	-- These are just placeholder dates.
-	local startTimestamp = 20240301
-	local endTimestamp = 20230601
+	local startTimestamp = 20230317
+	local endTimestamp = 20230619
 
 	local year = Year()
 	local month = MonthOfYear()+1
@@ -115,7 +115,16 @@ local DataForSong = function(player)
 			return 1
 		end
 
-		local totalTaps = judgments["Miss"] + judgments["W5"] + judgments["W4"]
+		local totalTaps = judgments["Miss"]
+
+		if judgments["W5"] ~= nil then
+			totalTaps = totalTaps + judgments["W5"]
+		end
+
+		if judgments["W4"] ~= nil then
+			totalTaps = totalTaps + judgments["W4"]
+		end
+
 		if totalTaps == 0 then clearType = 2 end
 
 		totalTaps = totalTaps + judgments["W3"]
@@ -186,7 +195,7 @@ local DataForSong = function(player)
 	local judgments = GetExJudgmentCounts(player)
 	local ex = CalculateExScore(player, judgments)
 	local clearType = GetClearType(judgments)
-	local points = GetPointsForSong(maxPoints, exScore)
+	local points = GetPointsForSong(maxPoints, ex)
 	local hash = SL[pn].Streams.Hash
 	local usedCmod = GAMESTATE:GetPlayerState(pn):GetPlayerOptions("ModsLevel_Preferred"):CMod() ~= nil
 	local date = ("%04d-%02d-%02d"):format(year, month, day)

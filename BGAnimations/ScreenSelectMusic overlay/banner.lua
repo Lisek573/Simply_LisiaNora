@@ -3,8 +3,8 @@ local banner_directory = FILEMAN:DoesFileExist(path) and path or THEME:GetPathG(
 
 local SongOrCourse = GAMESTATE:IsCourseMode() and GAMESTATE:GetCurrentCourse() or GAMESTATE:GetCurrentSong()
 
-local bannerWidth = 512
-local bannerHeight = 160
+local bannerWidth = 418
+local bannerHeight = 164
 
 local t = Def.ActorFrame{
 	OnCommand=function(self)
