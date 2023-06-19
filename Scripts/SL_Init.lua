@@ -32,7 +32,6 @@ local PlayerDefaults = {
 				ActionOnMissedTarget = "Nothing",
 				Pacemaker = false,
 				LifeMeterType = "Standard",
-				MissBecauseHeld = false,
 				NPSGraphAtTop = false,
 				JudgmentTilt = false,
 				ColumnCues = false,
@@ -41,12 +40,18 @@ local PlayerDefaults = {
 				ErrorBar = "None",
 				ErrorBarUp = false,
 				ErrorBarMultiTick = false,
-				ErrorBarTrim = false,
+				ErrorBarTrim = "Off",
+
+				HideEarlyDecentWayOffJudgments = false,
+				HideEarlyDecentWayOffFlash = false,
 
 				TimingWindows = {true, true, true, true, true},
 				ShowFaPlusWindow = false,
 				ShowEXScore = false,
 				ShowFaPlusPane = true,
+
+				NoteFieldOffsetX = 0,
+				NoteFieldOffsetY = 0,
 			}
 			-- TODO(teejusb): Rename "Streams" as the data contains more information than that.
 			self.Streams = {
@@ -250,6 +255,7 @@ SL = {
 			RegenComboAfterMiss=5,
 			MaxRegenComboAfterMiss=10,
 			MinTNSToHideNotes="TapNoteScore_W3",
+			MinTNSToScoreNotes=ThemePrefs.Get("RescoreEarlyHits") and "TapNoteScore_W3" or "TapNoteScore_None",
 			HarshHotLifePenalty=true,
 
 			PercentageScoring=true,
@@ -270,6 +276,7 @@ SL = {
 			RegenComboAfterMiss=5,
 			MaxRegenComboAfterMiss=10,
 			MinTNSToHideNotes="TapNoteScore_W4",
+			MinTNSToScoreNotes=ThemePrefs.Get("RescoreEarlyHits") and "TapNoteScore_W4" or "TapNoteScore_None",
 			HarshHotLifePenalty=true,
 
 			PercentageScoring=true,

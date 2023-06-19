@@ -62,7 +62,6 @@ local AttemptDownloads = function(res)
 	local data = JsonDecode(res.body)
 	for i=1,2 do
 		local playerStr = "player"..i
-
 		local events = {"rpg", "itl"}
 
 		for event in ivalues(events) do

@@ -403,7 +403,7 @@ local Overrides = {
 
 			list[1] = mods.ShowFaPlusWindow or false
 			list[2] = mods.ShowEXScore or false
-			list[3] = mods.ShowFaPlusPane or true
+			list[3] = mods.ShowFaPlusPane and true
 			return list
 		end,
 		SaveSelections = function(self, list, pn)
@@ -514,12 +514,11 @@ local Overrides = {
 		SelectType = "SelectMultiple",
 		Values = function()
 			-- GameplayExtras will be presented as a single OptionRow when WideScreen
-			local vals = { "ColumnFlashOnMiss", "SubtractiveScoring", "Pacemaker", "MissBecauseHeld", "NPSGraphAtTop" }
+			local vals = { "ColumnFlashOnMiss", "SubtractiveScoring", "Pacemaker", "NPSGraphAtTop" }
 
 			-- if not WideScreen (traditional DDR cabinets running at 640x480)
 			-- remove the last two choices to be appended an additional OptionRow (GameplayExtrasB below).
 			if not IsUsingWideScreen() then
-				table.remove(vals, 5)
 				table.remove(vals, 4)
 			end
 			return vals
@@ -536,7 +535,7 @@ local Overrides = {
 				end
 			else
 				-- Add in the two removed options if not in WideScreen.
-				vals = { "MissBecauseHeld", "NPSGraphAtTop", "JudgmentTilt", "ColumnCues" }
+				vals = { "NPSGraphAtTop", "JudgmentTilt", "ColumnCues" }
 			end
 			return vals
 		end
@@ -553,11 +552,19 @@ local Overrides = {
 	},
 	ErrorBar = {
 		Values = { "None", "Colorful", "Monochrome", "Text" },
+	},-------------------------------------------------------------------------
+	ErrorBarTrim = {
+		Values = { "Off", "Great", "Excellent" },
+		Choices = function()
+			local tns = "TapNoteScore"
+			local t = {THEME:GetString("SLPlayerOptions","Off"), THEME:GetString(tns,"W3"), THEME:GetString(tns,"W2")}
+			return t
+		end,
 	},
 	-------------------------------------------------------------------------
 	ErrorBarOptions = {
 		SelectType = "SelectMultiple",
-		Values = { "ErrorBarUp", "ErrorBarMultiTick", "ErrorBarTrim" },
+		Values = { "ErrorBarUp", "ErrorBarMultiTick" },
 	},
 	-------------------------------------------------------------------------
 	MeasureCounter = {
@@ -588,6 +595,11 @@ local Overrides = {
 			end
 			playeroptions:VisualDelay( mods.VisualDelay:gsub("ms","")/1000 )
 		end
+	},
+	-------------------------------------------------------------------------
+	TimingWindowOptions = {
+		SelectType = "SelectMultiple",
+		Values = { "HideEarlyDecentWayOffJudgments", "HideEarlyDecentWayOffFlash" }
 	},
 	-------------------------------------------------------------------------
 	TimingWindows = {
@@ -659,6 +671,66 @@ local Overrides = {
 							playeroptions:DisableTimingWindow("TimingWindow_W"..i)
 						end
 					end
+				end
+			end
+		end
+	},
+	-------------------------------------------------------------------------
+	NoteFieldOffsetX = {
+		LayoutType = "ShowOneInRow",
+		ExportOnChange = true,
+		Choices = function()
+			local first	= -50
+			local last 	= 50
+			local step 	= 1
+
+			return range(first, last, step)
+		end,
+		LoadSelections = function(self, list, pn)
+			local val = tonumber(SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetX) or 0
+			for i,v in ipairs(self.Choices) do
+				if v == val then
+					list[i] = true
+					break
+				end
+			end
+			return list
+		end,
+		SaveSelections = function(self, list, pn)
+			for i,v in ipairs(self.Choices) do
+				if list[i] then
+					SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetX = v
+					break
+				end
+			end
+		end
+	},
+	-------------------------------------------------------------------------
+	NoteFieldOffsetY = {
+		LayoutType = "ShowOneInRow",
+		ExportOnChange = true,
+		Choices = function()
+			local first	= -50
+			local last 	= 50
+			local step 	= 1
+
+			return range(first, last, step)
+		end,
+		LoadSelections = function(self, list, pn)
+			local val = tonumber(SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetY) or 0
+			for i,v in ipairs(self.Choices) do
+				if v == val then
+					list[i] = true
+					break
+				end
+			end
+			return list
+		end,
+		SaveSelections = function(self, list, pn)
+			for i,v in ipairs(self.Choices) do
+				if list[i] then
+					SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetY = v
+					break
 				end
 			end
 		end
