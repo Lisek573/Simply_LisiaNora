@@ -205,7 +205,7 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 							GSIcon:visible(true)
 							recordText:diffuseshift():effectcolor1(Color.White):effectcolor2(Color.Yellow):effectperiod(3)
 							if personalRank == 1 then
-								recordText:settext("World Record!")
+								recordText:settext("BoogieStats #1")
 							else
 								recordText:settext("Personal Best!")
 							end
