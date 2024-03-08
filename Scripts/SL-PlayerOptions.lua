@@ -86,7 +86,34 @@ local Overrides = {
 
 	-------------------------------------------------------------------------
 	SpeedModType = {
-		Values = { "X", "C", "M" },
+		Values = function()
+			-- if ThemePrefs.Get("EnableTournamentMode") and ThemePrefs.Get("EnforceNoCmod") then
+			-- 	local song = GAMESTATE:GetCurrentSong()
+			-- 	if song then
+			-- 		if (song:GetDisplayFullTitle():lower():match("no cmod") or
+			-- 			song:GetTranslitFullTitle():lower():match("no cmod")) then
+			-- 				-- Put "M" first so that the CMods will automatically change into MMods instead of XMods.
+			-- 				-- NOTE(teejusb): This only gets applied if the player goes into the options menu.
+			-- 				-- We also enforce this in screen gameplay.
+			-- 				return { "M", "X" }
+			-- 		end
+			-- 	end
+			-- end
+
+			-- NOTE(teejusb): We could remove "C" as an option in Tournament mode + Enforce No Cmod (like above),
+			-- but consider the following:
+			-- 
+			-- 1. Player has a CMod set
+			-- 2. Player plays a No CMod song where it auto converts to MMod.
+			--
+			-- It would be nice for the it to automatically go back to CMod if possible.
+			-- Removing "C" as an option makes it so the player will need to explicitly set it back if they had
+			-- previously entered the options menu.
+			--
+			-- Keeping the option, while making it the functionality more opaque, I think is better QOL where players
+			-- in a tournament can keep everything on CMod and it'll auto-convert to MMod as needed.
+			return { "X", "C", "M" }
+		end,
 		ExportOnChange = true,
 		LayoutType = "ShowOneInRow",
 		SaveSelections = function(self, list, pn)
@@ -389,33 +416,61 @@ local Overrides = {
 	FaPlus = {
 		SelectType = "SelectMultiple",
 		Values = function()
+			-- 1. Still allow the player to toggle the FA+ window during gameplay in Tournament Mode since
+			--    some might find it distracting. We should still display it in step stats if it's enabled
+			--    though.
+			-- 2. EX score/ITG score is forced in Tournament Mode so remove the option.
+			-- 3. FA Plus Pane should always be shown in Tournament Mode to prevent issues with
+			--    potentially crucial information.
+			if ThemePrefs.Get("EnableTournamentMode") then
+				return { "ShowFaPlusWindow" }
+			end
+
 			if SL.Global.GameMode == "FA+" then
 				return { "ShowEXScore" }
 			end
+
 			return { "ShowFaPlusWindow", "ShowEXScore", "ShowFaPlusPane" }
 		end,
 		LoadSelections = function(self, list, pn)
 			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
-			if SL.Global.GameMode == "FA+" then
-				list[1] = mods.ShowEXScore or false
+			if ThemePrefs.Get("EnableTournamentMode") then
+				list[1] = mods.ShowFaPlusWindow or false
 				return list
 			end
 
+			if SL.Global.GameMode == "FA+" then
+				list[1] = mods.ShowEXScore or false
+				return list
+			end		
+
 			list[1] = mods.ShowFaPlusWindow or false
 			list[2] = mods.ShowEXScore or false
-			list[3] = mods.ShowFaPlusPane or true
+			list[3] = mods.ShowFaPlusPane and true
 			return list
 		end,
 		SaveSelections = function(self, list, pn)
 			local sl_pn = SL[ToEnumShortString(pn)]
 			local mods = sl_pn.ActiveModifiers
-			if SL.Global.GameMode == "FA+" then
-				 -- always disable in FA+ mode since it's handled engine side.
-				mods.ShowFaPlusWindow = false
-				mods.ShowEXScore = list[2]
-				mods.ShowFaPlusPane = list[3]
+
+			if ThemePrefs.Get("EnableTournamentMode") then
+				mods.ShowFaPlusWindow = list[1]
+				mods.ShowEXScore = ThemePrefs.Get("ScoringSystem") == "EX"
+				mods.ShowFaPlusPane = true
+				-- Default to FA+ pane in Tournament Mode
+				sl_pn.EvalPanePrimary = 2
 				return
 			end
+
+			if SL.Global.GameMode == "FA+" then
+				-- always disable in FA+ mode since it's handled engine side.
+				mods.ShowFaPlusWindow = false
+				mods.ShowEXScore = list[1]
+				-- the main score pane is already the FA+ pane
+				mods.ShowFaPlusPane = false
+				return
+			end
+
 			mods.ShowFaPlusWindow = list[1]
 			mods.ShowEXScore = list[2]
 			mods.ShowFaPlusPane = list[3]
@@ -474,6 +529,8 @@ local Overrides = {
 			or (notefieldwidth and notefieldwidth > _screen.w/2)
 			-- if the notefield is centered with 4:3 aspect ratio
 			or (mpn and GetNotefieldX(mpn) == _screen.cx and not IsUsingWideScreen())
+			-- Tournament Mode always enforces whether to display/hide step stats so remove that as an option.
+			or ThemePrefs.Get("EnableTournamentMode")
 			then
 				table.remove(choices, 3)
 			end
@@ -513,12 +570,11 @@ local Overrides = {
 		SelectType = "SelectMultiple",
 		Values = function()
 			-- GameplayExtras will be presented as a single OptionRow when WideScreen
-			local vals = { "ColumnFlashOnMiss", "SubtractiveScoring", "Pacemaker", "MissBecauseHeld", "NPSGraphAtTop" }
+			local vals = { "ColumnFlashOnMiss", "SubtractiveScoring", "Pacemaker", "NPSGraphAtTop" }
 
 			-- if not WideScreen (traditional DDR cabinets running at 640x480)
 			-- remove the last two choices to be appended an additional OptionRow (GameplayExtrasB below).
 			if not IsUsingWideScreen() then
-				table.remove(vals, 5)
 				table.remove(vals, 4)
 			end
 			return vals
@@ -535,7 +591,7 @@ local Overrides = {
 				end
 			else
 				-- Add in the two removed options if not in WideScreen.
-				vals = { "MissBecauseHeld", "NPSGraphAtTop", "JudgmentTilt", "ColumnCues" }
+				vals = { "NPSGraphAtTop", "JudgmentTilt", "ColumnCues" }
 			end
 			return vals
 		end
@@ -552,6 +608,14 @@ local Overrides = {
 	},
 	ErrorBar = {
 		Values = { "None", "Colorful", "Monochrome", "Text" },
+	},-------------------------------------------------------------------------
+	ErrorBarTrim = {
+		Values = { "Off", "Great", "Excellent" },
+		Choices = function()
+			local tns = "TapNoteScore"
+			local t = {THEME:GetString("SLPlayerOptions","Off"), THEME:GetString(tns,"W3"), THEME:GetString(tns,"W2")}
+			return t
+		end,
 	},
 	-------------------------------------------------------------------------
 	ErrorBarOptions = {
@@ -602,9 +666,14 @@ local Overrides = {
 			local tns = "TapNoteScore" .. (SL.Global.GameMode=="ITG" and "" or SL.Global.GameMode)
 			local t = {THEME:GetString("SLPlayerOptions","None")}
 			-- assume pluralization via terminal s
-			t[2] = THEME:GetString(tns,"W5").."s"
-			t[3] = THEME:GetString(tns,"W4").."s + "..t[2]
-			t[4] = THEME:GetString(tns,"W1").."s + "..THEME:GetString(tns,"W2").."s"
+			local idx = 2
+			t[idx] = THEME:GetString(tns,"W5").."s"
+			idx = idx + 1
+			if SL.Global.GameMode=="ITG" then
+				t[idx] = THEME:GetString(tns,"W4").."s + "..t[idx-1]
+				idx = idx + 1
+			end
+			t[idx] = THEME:GetString(tns,"W1").."s + "..THEME:GetString(tns,"W2").."s"
 			return t
 		end,
 		LoadSelections = function(self, list, pn)
@@ -653,6 +722,66 @@ local Overrides = {
 							playeroptions:DisableTimingWindow("TimingWindow_W"..i)
 						end
 					end
+				end
+			end
+		end
+	},
+	-------------------------------------------------------------------------
+	NoteFieldOffsetX = {
+		LayoutType = "ShowOneInRow",
+		ExportOnChange = true,
+		Choices = function()
+			local first	= 0
+			local last 	= 50
+			local step 	= 1
+
+			return range(first, last, step)
+		end,
+		LoadSelections = function(self, list, pn)
+			local val = tonumber(SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetX) or 0
+			for i,v in ipairs(self.Choices) do
+				if v == val then
+					list[i] = true
+					break
+				end
+			end
+			return list
+		end,
+		SaveSelections = function(self, list, pn)
+			for i,v in ipairs(self.Choices) do
+				if list[i] then
+					SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetX = v
+					break
+				end
+			end
+		end
+	},
+	-------------------------------------------------------------------------
+	NoteFieldOffsetY = {
+		LayoutType = "ShowOneInRow",
+		ExportOnChange = true,
+		Choices = function()
+			local first	= -50
+			local last 	= 50
+			local step 	= 1
+
+			return range(first, last, step)
+		end,
+		LoadSelections = function(self, list, pn)
+			local val = tonumber(SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetY) or 0
+			for i,v in ipairs(self.Choices) do
+				if v == val then
+					list[i] = true
+					break
+				end
+			end
+			return list
+		end,
+		SaveSelections = function(self, list, pn)
+			for i,v in ipairs(self.Choices) do
+				if list[i] then
+					SL[ToEnumShortString(pn)].ActiveModifiers.NoteFieldOffsetY = v
+					break
 				end
 			end
 		end

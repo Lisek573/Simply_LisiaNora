@@ -12,7 +12,6 @@ local PlayerDefaults = {
 				NoteSkin = nil,
 				Mini = "0%",
 				BackgroundFilter = "Off",
-				VisualDelay = "0ms",
 
 				HideTargets = false,
 				HideSongBG = false,
@@ -32,7 +31,6 @@ local PlayerDefaults = {
 				ActionOnMissedTarget = "Nothing",
 				Pacemaker = false,
 				LifeMeterType = "Standard",
-				MissBecauseHeld = false,
 				NPSGraphAtTop = false,
 				JudgmentTilt = false,
 				ColumnCues = false,
@@ -41,11 +39,14 @@ local PlayerDefaults = {
 				ErrorBar = "None",
 				ErrorBarUp = false,
 				ErrorBarMultiTick = false,
+				ErrorBarTrim = "Off",
 
-				TimingWindows = {true, true, true, true, true},
 				ShowFaPlusWindow = false,
 				ShowEXScore = false,
 				ShowFaPlusPane = true,
+
+				NoteFieldOffsetX = 0,
+				NoteFieldOffsetY = 0,
 			}
 			-- TODO(teejusb): Rename "Streams" as the data contains more information than that.
 			self.Streams = {
@@ -57,6 +58,7 @@ local PlayerDefaults = {
 
 				-- Information parsed out from the chart.
 				NotesPerMeasure = {},
+				EquallySpacedPerMeasure = {},
 				PeakNPS = 0,
 				NPSperMeasure = {},
 				columnCues = {},
@@ -80,7 +82,10 @@ local PlayerDefaults = {
 				Stats = {}
 			}
 			self.PlayerOptionsString = nil
-			self.ITLData = {}
+			self.ITLData = {
+				["pathMap"] = {},
+				["hashMap"] = {},
+			}
 
 			-- default panes to intialize ScreenEvaluation to
 			-- when only a single player is joined (single, double)
@@ -104,6 +109,7 @@ local GlobalDefaults = {
 		initialize = function(self)
 			self.ActiveModifiers = {
 				MusicRate = 1.0,
+				TimingWindows = {true, true, true, true, true},
 			}
 			self.Stages = {
 				PlayedThisGame = 0,
@@ -128,6 +134,7 @@ local GlobalDefaults = {
 				ScreenNameEntry = ThemePrefs.Get("ScreenNameEntryMenuTimer"),
 			}
 			self.TimeAtSessionStart = nil
+			self.SampleMusicLoops = ThemePrefs.Get("SampleMusicLoops")
 
 			self.GameplayReloadCheck = false
 			-- How long to wait before displaying a "cue"
@@ -150,44 +157,33 @@ SL = {
 	-- Colors that Simply Love's background can be
 	-- These colors are used for text on dark backgrounds and backgrounds containing dark text:
 	Colors = {
-	"#adadad",
-	"#795ea3", --beginner
-	"#579442",
-	"#aaa85a",
-	"#8c5463",
-	"#577da3",
-		--"#FF5D47",
-		--"#FF577E",
-		--"#FF47B3",
-		--"#DD57FF",
-		--"#8885ff",
-		--"#3D94FF",
-		--"#00B8CC",
-		--"#5CE087",
---		"#AEFA44",
---		"#FFFF00",
---		"#FFFFFF",
---		"#000000",
---		"#FFBE00",
---		"#FF7D00",
+		"#FF5D47",
+		"#FF577E",
+		"#FF47B3",
+		"#DD57FF",
+		"#8885ff",
+		"#3D94FF",
+		"#00B8CC",
+		"#5CE087",
+		"#AEFA44",
+		"#FFFF00",
+		"#FFBE00",
+		"#FF7D00",
 	},
 	-- These are the original SL colors. They're used for decorative (non-text) elements, like the background hearts:
 	DecorativeColors = {
-	"#111111",
-	"#444444",
-	"#777777",
-	"#AAAAAA",
-	"#CCCCCC",
-	"#FF5500",
-		--"#8200A1",
-		--"#413AD0",
-		--"#0073FF",
-		--"#00ADC0",
-		--"#5CE087",
-		--"#AEFA44",
-		--"#FFFF00",
-		--"#FFBE00",
-		--"#FF7D00"
+		"#FF3C23",
+		"#FF003C",
+		"#C1006F",
+		"#8200A1",
+		"#413AD0",
+		"#0073FF",
+		"#00ADC0",
+		"#5CE087",
+		"#AEFA44",
+		"#FFFF00",
+		"#FFBE00",
+		"#FF7D00"
 	},
 	-- These judgment colors are used for text & numbers on dark backgrounds:
 	JudgmentColors = {
@@ -418,12 +414,12 @@ SL = {
 		Held=1,
 		HitMine=-1
 	},
-	-- Fields used to determine whether or not we can connect to the
-	-- GrooveStats services.
+	-- Fields used to determine the existence of the launcher and the
+	-- available GrooveStats services.
 	GrooveStats = {
-		-- Whether we're connected to the internet or not.
+		-- Whether we're launching StepMania with a launcher.
 		-- Determined once on boot in ScreenSystemLayer.
-		IsConnected = false,
+		Launcher = false,
 
 		-- Available GrooveStats services. Subject to change while
 		-- StepMania is running.
@@ -437,38 +433,7 @@ SL = {
 		-- *   updated to properly consume this value.  *
 		-- **********************************************
 		ChartHashVersion = 3,
-
-		-- We want to cache the some of the requests/responses to prevent making the
-		-- same request multiple times in a small timeframe.
-		-- Each entry is keyed with some string hash which maps to a table with the
-		-- following keys:
-		--   Response: string, the JSON-ified response to cache
-		--   Timestamp: number, when the request was made
-		RequestCache = {},
-
-		-- Used to prevent redundant downloads for SRPG unlocks.
-		-- Each entry is keyed on the URL of the download which maps to a table of
-		-- PackNames the unlock has been unpacked to.
-		-- To see if we have already downloaded an unlock, one can just key on
-		-- SL.UnlocksCache[url][packName]
-		-- LoadUnlocksCache() is defined in SL-Helpers-GrooveStats.lua so that must
-		-- be loaded before this file.
-		UnlocksCache = LoadUnlocksCache(),
-	},
-	-- Stores all active/failed downloads.
-	-- Each entry is keyed on a string UUID which maps to a table with the
-	-- following keys:
-	--    Request: HttpRequestFuture, the closure returned by NETWORK:HttpRequest
-	--    Name: string, an identifier for this download.
-	--    Url: string, The URL of the download.
-	--    Destination: string, where the download should be unpacked to.
-	--    CurrentBytes: number, the bytes downloaded so far
-	--    TotalBytes: number, the total bytes of the file
-	--    Complete: bool, whether or not the download has completed
-	--              (either success or failure).
-	-- If a request fails, there will be another key:
-	--    ErrorMessage: string, the reasoning for the failure.
-	Downloads = {}
+	}
 }
 
 

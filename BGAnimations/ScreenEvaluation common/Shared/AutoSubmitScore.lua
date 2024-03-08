@@ -1,4 +1,4 @@
-if not IsServiceAllowed(SL.GrooveStats.AutoSubmit) then return end
+if not IsServiceAllowed(SL.GrooveStats.AutoSubmit) or GAMESTATE:IsCourseMode() then return end
 
 local NumEntries = 10
 
@@ -58,69 +58,34 @@ local GetJudgmentCounts = function(player)
 	return judgmentCounts
 end
 
-local AttemptDownloads = function(res)
-	local data = JsonDecode(res.body)
-	for i=1,2 do
-		local playerStr = "player"..i
-		if data and data[playerStr] and data[playerStr]["rpg"] then
-			local rpgData = data[playerStr]["rpg"]
-			local eventName = rpgData["name"] or "Unknown Event"
-		
-			-- See if any quests were completed.
-			if rpgData["progress"] and rpgData["progress"]["questsCompleted"] then
-				local quests = rpgData["progress"]["questsCompleted"]
-				-- Iterate through the quests...
-				for quest in ivalues(quests) do
-					-- ...and check for any unlocks.
-					if quest["songDownloadUrl"] then
-						local url = quest["songDownloadUrl"]
-						local title = quest["title"] or ""
-
-						if ThemePrefs.Get("SeparateUnlocksByPlayer") then
-							local profileName = "NoName"
-							local player = "PlayerNumber_P"..i
-							if (PROFILEMAN:IsPersistentProfile(player) and
-									PROFILEMAN:GetProfile(player)) then
-								profileName = PROFILEMAN:GetProfile(player):GetDisplayName()
-							end
-							title = title.." - "..profileName
-							DownloadSRPGUnlock(url, title, eventName.." Unlocks - "..profileName)
-						else
-							DownloadSRPGUnlock(url, title, eventName.." Unlocks")
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
 local AutoSubmitRequestProcessor = function(res, overlay)
 	local P1SubmitText = overlay:GetChild("AutoSubmitMaster"):GetChild("P1SubmitText")
 	local P2SubmitText = overlay:GetChild("AutoSubmitMaster"):GetChild("P2SubmitText")
-
-	if res.error or res.statusCode ~= 200 then
-		local error = res.error and ToEnumShortString(res.error) or nil
-		if error == "Timeout" then
-			if P1SubmitText then P1SubmitText:queuecommand("TimedOut") end
-			if P2SubmitText then P2SubmitText:queuecommand("TimedOut") end
-		elseif error or (res.statusCode ~= nil and res.statusCode ~= 200) then
-			if P1SubmitText then P1SubmitText:queuecommand("SubmitFailed") end
-			if P2SubmitText then P2SubmitText:queuecommand("SubmitFailed") end
-		end
+	if res == nil then
+		if P1SubmitText then P1SubmitText:queuecommand("TimedOut") end
+		if P2SubmitText then P2SubmitText:queuecommand("TimedOut") end
 		return
 	end
 
 	local panes = overlay:GetChild("Panes")
 	local shouldDisplayOverlay = false
 
+	if res["status"] == "fail" then
+		if P1SubmitText then P1SubmitText:queuecommand("SubmitFailed") end
+		if P2SubmitText then P2SubmitText:queuecommand("SubmitFailed") end
+		return
+	elseif res["status"] == "disabled" then
+		if P1SubmitText then P1SubmitText:queuecommand("ServiceDisabled") end
+		if P2SubmitText then P2SubmitText:queuecommand("ServiceDisabled") end
+		return
+	end
 	-- Hijack the leaderboard pane to display the GrooveStats leaderboards.
 	if panes then
-		local data = JsonDecode(res.body)
 		for i=1,2 do
 			local playerStr = "player"..i
 			local entryNum = 1
-			local rivalNum = 1
+			local rivalNum = 1	
+			local data = res["status"] == "success" and res["data"] or nil
 			-- Pane 8 is the groovestats highscores pane.
 			local highScorePane = panes:GetChild("Pane8_SideP"..i):GetChild("")
 			local QRPane = panes:GetChild("Pane7_SideP"..i):GetChild("")
@@ -142,16 +107,17 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 				-- It's better to just not display anything than display the wrong scores.
 				if SL["P"..side].Streams.Hash == data[playerStr]["chartHash"] then
 					local personalRank = nil
-					if not data[playerStr]["isRanked"] then
-						QRPane:GetChild("QRCode"):queuecommand("Hide")
-						QRPane:GetChild("HelpText"):settext("This chart is not ranked on GrooveStats.")
-						if i == 1 and P1SubmitText then
-							P1SubmitText:queuecommand("ChartNotRanked")
-						elseif i == 2 and P2SubmitText then
-							P2SubmitText:queuecommand("ChartNotRanked")
-						end
-					elseif data[playerStr]["gsLeaderboard"] then
-						for gsEntry in ivalues(data[playerStr]["gsLeaderboard"]) do
+					local showExScore = SL["P"..side].ActiveModifiers.ShowEXScore and data[playerStr]["exLeaderboard"]
+
+					local leaderboardData = nil
+					if showExScore then
+						leaderboardData = data[playerStr]["exLeaderboard"]
+					elseif data[playerStr]["leaderboard"] then
+						leaderboardData = data[playerStr]["gsLeaderboard"]
+					end
+
+					if leaderboardData then
+						for gsEntry in ivalues(leaderboardData) do
 							local entry = highScorePane:GetChild("HighScoreList"):GetChild("HighScoreEntry"..entryNum)
 							entry:stoptweening()
 							entry:diffuse(Color.White)
@@ -162,6 +128,15 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 								ParseGroovestatsDate(gsEntry["date"]),
 								entry
 							)
+
+							-- TODO(teejusb): Determine how we want to easily display EX scores.
+							-- For now just highlight blue because it's simple.
+							if showExScore then
+								entry:GetChild("Score"):diffuse(SL.JudgmentColors["FA+"][1])
+							else
+								entry:GetChild("Score"):diffuse(Color.White)
+							end
+
 							if gsEntry["isRival"] then
 								entry:diffuse(color("#BD94FF"))
 								rivalNum = rivalNum + 1
@@ -175,6 +150,7 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 							end
 							entryNum = entryNum + 1
 						end
+
 						QRPane:GetChild("QRCode"):queuecommand("Hide")
 						QRPane:GetChild("HelpText"):settext("Score has already been submitted :)")
 						if i == 1 and P1SubmitText then
@@ -191,24 +167,31 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 						shouldDisplayOverlay = true
 					end
 
-					local upperPane = overlay:GetChild("P"..side.."_AF_Upper")
-					if upperPane then
-						if data[playerStr]["result"] == "score-added" or data[playerStr]["result"] == "improved" then
-							local recordText = overlay:GetChild("AutoSubmitMaster"):GetChild("P"..side.."RecordText")
-							local GSIcon = overlay:GetChild("AutoSubmitMaster"):GetChild("P"..side.."GrooveStats_Logo")
+					-- Only update PB/WR messages on the side that is joined
+					if ToEnumShortString("PLAYER_P"..i) == "P"..side then
+						local upperPane = overlay:GetChild("P"..side.."_AF_Upper")
+						if upperPane then
+							if data[playerStr]["result"] == "score-added" or data[playerStr]["result"] == "improved" then
+								local recordText = overlay:GetChild("AutoSubmitMaster"):GetChild("P"..side.."RecordText")
+								local GSIcon = overlay:GetChild("AutoSubmitMaster"):GetChild("P"..side.."GrooveStats_Logo")
 
-							recordText:visible(true)
-							GSIcon:visible(true)
-							recordText:diffuseshift():effectcolor1(Color.White):effectcolor2(Color.Yellow):effectperiod(3)
-							if personalRank == 1 then
-								recordText:settext("World Record!")
-							else
-								recordText:settext("Personal Best!")
+								recordText:visible(true)
+								GSIcon:visible(true)
+								recordText:diffuseshift():effectcolor1(Color.White):effectcolor2(Color.Yellow):effectperiod(3)
+								if personalRank == 1 then
+									local worldRecordText = "World Record!"
+									if showExScore then
+										worldRecordText = worldRecordText .. " (EX)"
+									end
+									recordText:settext(worldRecordText)
+								else
+									recordText:settext("Personal Best!")
+								end
+								local recordTextXStart = recordText:GetX() - recordText:GetWidth()*recordText:GetZoom()/2
+								local GSIconWidth = GSIcon:GetWidth()*GSIcon:GetZoom()
+								-- This will automatically adjust based on the length of the recordText length.
+								GSIcon:xy(recordTextXStart - GSIconWidth/2, recordText:GetY())
 							end
-							local recordTextXStart = recordText:GetX() - recordText:GetWidth()*recordText:GetZoom()/2
-							local GSIconWidth = GSIcon:GetWidth()*GSIcon:GetZoom()
-							-- This will automatically adjust based on the length of the recordText length.
-							GSIcon:xy(recordTextXStart - GSIconWidth/2, recordText:GetY())
 						end
 					end
 				end
@@ -222,15 +205,7 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 					entry:stoptweening()
 					-- We didn't get any scores if i is still == 1.
 					if j == 1 then
-						if data and data[playerStr] then
-							if data[playerStr]["isRanked"] then
-								SetEntryText("", "No Scores", "", "", entry)
-							else
-								SetEntryText("", "Chart Not Ranked", "", "", entry)
-							end
-						else
-							SetEntryText("", "No Scores", "", "", entry)
-						end
+						SetEntryText("", "No Scores", "", "", entry)
 					else
 						-- Empty out the remaining rows.
 						SetEntryText("---", "----", "------", "----------", entry)
@@ -244,23 +219,17 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 		overlay:GetChild("AutoSubmitMaster"):GetChild("EventOverlay"):visible(true)
 		overlay:queuecommand("DirectInputToEventOverlayHandler")
 	end
-
-	if ThemePrefs.Get("AutoDownloadUnlocks") then
-		-- This will only download if the expected data exists.
-		AttemptDownloads(res)
-	end
 end
 
 local af = Def.ActorFrame {
 	Name="AutoSubmitMaster",
-	RequestResponseActor(17, 50)..{
+	RequestResponseActor("AutoSubmit", 30, 17, 50)..{
 		OnCommand=function(self)
 			local sendRequest = false
-			local headers = {}
-			local query = {
+			local data = {
+				action="groovestats/score-submit",
 				maxLeaderboardResults=NumEntries,
 			}
-			local body = {}
 
 			local rate = SL.Global.ActiveModifiers.MusicRate * 100
 			for i=1,2 do
@@ -282,15 +251,15 @@ local af = Def.ActorFrame {
 						end
 
 						if SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= "" then
-							query["chartHashP"..i] = SL[pn].Streams.Hash
-							headers["x-api-key-player-"..i] = SL[pn].ApiKey
-
-							body["player"..i] = {
+							data["player"..i] = {
+								chartHash=SL[pn].Streams.Hash,
+								apiKey=SL[pn].ApiKey,
 								rate=rate,
 								score=score,
 								judgmentCounts=GetJudgmentCounts(player),
 								usedCmod=(GAMESTATE:GetPlayerState(pn):GetPlayerOptions("ModsLevel_Preferred"):CMod() ~= nil),
 								comment=CreateCommentString(player),
+								profileName=profileName,
 							}
 							sendRequest = true
 							submitForPlayer = true
@@ -311,15 +280,10 @@ local af = Def.ActorFrame {
 				-- Unjoined players won't have the text displayed.
 				self:GetParent():GetChild("P1SubmitText"):settext("Submitting ...")
 				self:GetParent():GetChild("P2SubmitText"):settext("Submitting ...")
-
-				self:playcommand("MakeGrooveStatsRequest", {
-					endpoint="score-submit.php?"..NETWORK:EncodeQueryParameters(query),
-					method="POST",
-					headers=headers,
-					body=JsonEncode(body),
-					timeout=30,
-					callback=AutoSubmitRequestProcessor,
+				MESSAGEMAN:Broadcast("AutoSubmit", {
+					data=data,
 					args=SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("ScreenEval Common"),
+					callback=AutoSubmitRequestProcessor
 				})
 			end
 		end
@@ -342,15 +306,15 @@ af[#af+1] = LoadFont("Common Normal").. {
 		self:zoom(0.8)
 		self:visible(GAMESTATE:IsSideJoined(PLAYER_1))
 	end,
-	ChartNotRankedCommand=function(self)
-		self:settext("Chart Not Ranked")
-	end,
 	SubmitCommand=function(self)
 		self:settext("Submitted!")
 	end,
 	SubmitFailedCommand=function(self)
 		self:settext("Submit Failed 😞")
 		DiffuseEmojis(self)
+	end,
+	ServiceDisabledCommand=function(self)
+		self:settext("Submit Disabled")
 	end,
 	TimedOutCommand=function(self)
 		self:settext("Timed Out")
@@ -367,15 +331,15 @@ af[#af+1] = LoadFont("Common Normal").. {
 		self:zoom(0.8)
 		self:visible(GAMESTATE:IsSideJoined(PLAYER_2))
 	end,
-	ChartNotRankedCommand=function(self)
-		self:settext("Chart Not Ranked")
-	end,
 	SubmitCommand=function(self)
 		self:settext("Submitted!")
 	end,
 	SubmitFailedCommand=function(self)
 		self:settext("Submit Failed 😞")
 		DiffuseEmojis(self)
+	end,
+	ServiceDisabledCommand=function(self)
+		self:settext("Submit Disabled")
 	end,
 	TimedOutCommand=function(self)
 		self:settext("Timed Out")

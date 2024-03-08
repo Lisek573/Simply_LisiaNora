@@ -3,17 +3,18 @@ local IsUltraWide = (GetScreenAspectRatio() > 21/9)
 
 local ShouldDisplayStatsForPlayer = function(player)
     local pn = ToEnumShortString(player)
-    return SL[pn].ActiveModifiers.DataVisualizations == "Step Statistics"
+    return (SL[pn].ActiveModifiers.DataVisualizations == "Step Statistics" or
+            ThemePrefs.Get("EnableTournamentMode") and ThemePrefs.Get("StepStats") == "Show")
 end
 
 local ShouldDisplayStats = function()
-    -- Ultrawide versus is already supported natively.
-    if IsUltraWide then return false end
-
     -- Only use this in Versus + Widescreen.
     if GAMESTATE:GetCurrentStyle():GetName() ~= "versus" or not IsUsingWideScreen() then
         return false
     end
+
+    -- Ultrawide versus is already supported natively.
+    if IsUltraWide then return false end
 
     local shouldDisplay = false
     for player in ivalues(Players) do
@@ -74,8 +75,8 @@ for player in ivalues(Players) do
 
         af[#af+1] = judgments
 
-        -- Add a score to Step Stats if it's hidden by the NPS graph.
-        if SL[ToEnumShortString(player)].ActiveModifiers.NPSGraphAtTop then
+        -- Add a score to Step Stats if it's hidden by the NPS graph or we're in Tournament Mode.
+        if SL[ToEnumShortString(player)].ActiveModifiers.NPSGraphAtTop or ThemePrefs.Get("EnableTournamentMode") then
             local pn = ToEnumShortString(player)
             local IsEX = SL[pn].ActiveModifiers.ShowEXScore
 
@@ -98,7 +99,9 @@ for player in ivalues(Players) do
                 end,
                 JudgmentMessageCommand=function(self, params)
                     if params.Player ~= player then return end
-            
+                    self:queuecommand("RedrawScore")
+                end,
+                RedrawScoreCommand=function(self)
                     if not IsEX then
                         local pss = STATSMAN:GetCurStageStats():GetPlayerStageStats(player)
                         local dance_points = pss:GetPercentDancePoints()

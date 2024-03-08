@@ -29,7 +29,7 @@ local af = Def.ActorFrame{
 
 	-- the SM5 engine has broadcast that the player input a Metrics-based button code
 	CodeMessageCommand=function(self, params)
-		if params.Name == "EscapeFromEventMode" then
+		if params.Name == "EscapeFromEventMode" or params.Name == "EscapeFromEventMode2" then
 			self:queuecommand("Show")
 		end
 	end,
@@ -104,8 +104,8 @@ local af = Def.ActorFrame{
 }
 
 -- sound effects
-af[#af+1] = Def.Sound{ File=THEME:GetPathS("ScreenSelectMaster", "change"), InitCommand=function(self) sfx.change = self end }
-af[#af+1] = Def.Sound{ File=THEME:GetPathS("Common", "Start"), InitCommand=function(self) sfx.start = self end }
+af[#af+1] = Def.Sound{ File=THEME:GetPathS("ScreenSelectMaster", "change"), IsAction=true, InitCommand=function(self) sfx.change = self end }
+af[#af+1] = Def.Sound{ File=THEME:GetPathS("Common", "Start"),              IsAction=true, InitCommand=function(self) sfx.start  = self end }
 
 -- darkened background
 af[#af+1] = Def.Quad{ InitCommand=function(self) self:FullScreen():diffuse(0,0,0,0.925) end }
